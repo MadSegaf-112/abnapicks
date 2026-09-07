@@ -1,0 +1,225 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   AURA AI × ABNA SIGNATURE — Visual Design System Tokens
+   Warm Ivory (#fffcf5) · Deep Emerald (#0b4839)
+   Sand Gold (#c4b392) · Terracotta (#cc6035) · Charcoal Ink
+   ============================================================ */
+
+@theme inline {
+  --font-display: "Archivo Black", "Inter", system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-body: "Inter", system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  /* ABNA Signature Brand Palette */
+  --color-emerald: var(--emerald-sig);
+  --color-emerald-deep: var(--emerald-deep);
+  --color-sand: var(--sand-gold);
+  --color-sand-deep: var(--sand-deep);
+  --color-terracotta: var(--terracotta);
+  --color-terracotta-hover: var(--terracotta-hover);
+  --color-gold: var(--sand-gold);
+  --color-gold-deep: var(--sand-deep);
+  --color-ink: var(--ink);
+  --color-ivory: var(--ivory);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+}
+
+:root {
+  /* Official ABNA Signature Colors */
+  --ivory: #fffcf5;
+  --emerald-sig: #0b4839;
+  --emerald-deep: #073328;
+  --sand-gold: #c4b392;
+  --sand-deep: #a5936e;
+  --terracotta: #cc6035;
+  --terracotta-hover: #b85229;
+
+  /* Surfaces & Canvas */
+  --background: #fffcf5;
+  --foreground: oklch(0.2 0.015 60);
+  --ink: oklch(0.16 0.012 60);
+
+  /* Cards & Elev Surfaces */
+  --card: #ffffff;
+  --card-foreground: oklch(0.2 0.015 60);
+  --popover: #ffffff;
+  --popover-foreground: oklch(0.2 0.015 60);
+
+  /* Semantic Brand Roles: Deep Emerald primary anchor */
+  --primary: #0b4839;
+  --primary-foreground: #fffcf5;
+  --secondary: #f4eee2;
+  --secondary-foreground: #0b4839;
+  --muted: #f3efe6;
+  --muted-foreground: #6e685c;
+  --accent: #c4b392;
+  --accent-foreground: #0b4839;
+
+  /* Legacy variable alias mappings for backward compatibility */
+  --gold: #c4b392;
+  --gold-deep: #a5936e;
+
+  /* Borders & Focus Rings */
+  --border: #e8e2d5;
+  --input: #e8e2d5;
+  --ring: #0b4839;
+
+  /* Destructive */
+  --destructive: #b93826;
+  --destructive-foreground: #ffffff;
+
+  --radius: 0.5rem;
+
+  /* Layered Warm Shadows */
+  --shadow-subtle: 0 2px 8px -2px rgba(15, 23, 20, 0.05), 0 1px 3px 0 rgba(15, 23, 20, 0.03);
+  --shadow-card: 0 16px 36px -12px rgba(11, 72, 57, 0.08), 0 4px 16px -4px rgba(11, 72, 57, 0.04);
+  --shadow-polaroid:
+    0 28px 56px -16px rgba(15, 25, 22, 0.18), 0 10px 24px -10px rgba(15, 25, 22, 0.12);
+  --shadow-polaroid-hover:
+    0 40px 72px -16px rgba(15, 25, 22, 0.26), 0 16px 36px -10px rgba(15, 25, 22, 0.16);
+  --shadow-glow-emerald: 0 0 60px -10px rgba(11, 72, 57, 0.25);
+  --shadow-glow-gold: 0 0 60px -10px rgba(196, 179, 146, 0.35);
+
+  /* Gradients */
+  --gradient-ivory: radial-gradient(ellipse at top, #ffffff 0%, #fffcf5 55%, #f6f0e4 100%);
+  --gradient-emerald: linear-gradient(135deg, #0b4839 0%, #073328 100%);
+  --gradient-sand: linear-gradient(135deg, #c4b392 0%, #a5936e 100%);
+  --gradient-terracotta: linear-gradient(135deg, #cc6035 0%, #b85229 100%);
+}
+
+.dark {
+  --background: #091714;
+  --foreground: #fffcf5;
+  --card: #0d221e;
+  --card-foreground: #fffcf5;
+  --primary: #c4b392;
+  --primary-foreground: #0b4839;
+  --border: rgba(255, 252, 245, 0.12);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html,
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+  body {
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.04em;
+  }
+  .font-serif {
+    font-family: var(--font-serif);
+  }
+  .font-body {
+    font-family: var(--font-body);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Subtle tactile film grain — organic paper/ivory texture */
+  .grain::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 100;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    opacity: 0.06;
+    mix-blend-mode: multiply;
+  }
+
+  .ivory-bg {
+    background: var(--gradient-ivory);
+  }
+
+  .polaroid-shadow {
+    box-shadow: var(--shadow-polaroid);
+  }
+  .polaroid-shadow-hover {
+    box-shadow: var(--shadow-polaroid-hover);
+  }
+
+  /* Aura ambient orb — animated subtle Deep Emerald + Sand Gold atmospheric glow */
+  .aura-orb {
+    background: conic-gradient(
+      from 0deg,
+      rgba(11, 72, 57, 0.22),
+      rgba(196, 179, 146, 0.32),
+      rgba(204, 96, 53, 0.12),
+      rgba(11, 72, 57, 0.22)
+    );
+    filter: blur(50px);
+    animation: aura-spin 14s linear infinite;
+  }
+  @keyframes aura-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Luxury Cinematic Glassmorphism Utilities */
+  .glass-emerald-panel {
+    background-color: rgba(7, 35, 28, 0.55);
+    backdrop-filter: blur(20px) saturate(130%);
+    -webkit-backdrop-filter: blur(20px) saturate(130%);
+    border: 1px solid rgba(196, 179, 146, 0.22);
+    box-shadow: 0 20px 48px -12px rgba(0, 0, 0, 0.45);
+  }
+
+  .glass-emerald-pill {
+    background-color: rgba(7, 35, 28, 0.45);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 252, 245, 0.14);
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    scrollbar-width: none;
+  }
+}
