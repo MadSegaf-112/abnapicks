@@ -85,7 +85,7 @@ export function buildCustomerSessionRecord(input: SaveSessionInput): CustomerSes
   // Map recommendations to persisted format
   const persistedRecs: PersistedRecommendationItem[] = input.recommendations.map((rec) => ({
     rank: rec.rank,
-    id: rec.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    id: rec.id || rec.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
     name: rec.name,
     house: rec.house,
     category: rec.category,
@@ -126,7 +126,9 @@ export function buildCustomerSessionRecord(input: SaveSessionInput): CustomerSes
     intensity: intensityStr || null,
     occasion: meta.occasion || null,
     recommendations: persistedRecs,
-    top_fragrance_id: topRec ? topRec.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") : "unknown",
+    top_fragrance_id: topRec
+      ? topRec.id || topRec.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+      : "unknown",
     top_fragrance_name: topRec ? topRec.name : "Unknown",
     top_fragrance_house: topRec ? topRec.house : "Unknown",
     top_match_percent: topRec ? Math.round(topRec.match_percent) : 0,

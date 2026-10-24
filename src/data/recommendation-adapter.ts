@@ -38,6 +38,7 @@ export function formatRecommendationsWithNarratives(
       `${profile.metadata.mood ? profile.metadata.mood.toUpperCase() : "SIGNATURE"} · ${f.fragranceFamily.toUpperCase()}`;
 
     return {
+      id: f.id,
       rank: item.rank,
       name: f.name,
       house: f.brand,

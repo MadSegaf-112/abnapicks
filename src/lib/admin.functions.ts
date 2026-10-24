@@ -1,3 +1,4 @@
+import { adminAuthorization } from "./admin-authorization";
 /**
  * Phase DATA-EXPORT-UX-01 — Admin Server Functions
  *
@@ -50,6 +51,7 @@ const AnalyticsFilterSchema = z.object({
 });
 
 export const getAdminDashboardData = createServerFn({ method: "POST" })
+  .middleware([adminAuthorization])
   .validator((data: unknown) => AnalyticsFilterSchema.parse(data || {}))
   .handler(async ({ data }) => {
     const dashboardData = await getDashboardAnalytics(data);
@@ -57,6 +59,7 @@ export const getAdminDashboardData = createServerFn({ method: "POST" })
   });
 
 export const getAdminSessionDetail = createServerFn({ method: "POST" })
+  .middleware([adminAuthorization])
   .validator((data: unknown) => z.object({ sessionId: z.string() }).parse(data))
   .handler(async ({ data }) => {
     const session = await getSessionDetail(data.sessionId);
@@ -65,6 +68,7 @@ export const getAdminSessionDetail = createServerFn({ method: "POST" })
   });
 
 export const deleteAdminSession = createServerFn({ method: "POST" })
+  .middleware([adminAuthorization])
   .validator((data: unknown) => z.object({ sessionId: z.string() }).parse(data))
   .handler(async ({ data }) => {
     return await deleteCustomerSession(data.sessionId);
@@ -74,6 +78,7 @@ export const deleteAdminSession = createServerFn({ method: "POST" })
  * Server Function: PRIMARY EXPORT FORMAT — Multi-Sheet Professional Excel Report (.xlsx)
  */
 export const exportAdminAnalyticsXlsxServerFn = createServerFn({ method: "POST" })
+  .middleware([adminAuthorization])
   .validator((data: unknown) =>
     z
       .object({
@@ -169,6 +174,7 @@ export const exportAdminAnalyticsXlsxServerFn = createServerFn({ method: "POST" 
  * Server Function: SECONDARY EXPORT FORMAT — Developer / System JSON Data
  */
 export const exportAdminAnalyticsJsonServerFn = createServerFn({ method: "POST" })
+  .middleware([adminAuthorization])
   .validator((data: unknown) =>
     z
       .object({
@@ -262,6 +268,7 @@ export const exportAdminAnalyticsJsonServerFn = createServerFn({ method: "POST" 
  * Server Function: Export Consultation Sessions (CSV or JSON - Backward Compatibility)
  */
 export const exportConsultationsServerFn = createServerFn({ method: "POST" })
+  .middleware([adminAuthorization])
   .validator((data: unknown) =>
     z
       .object({
@@ -374,6 +381,7 @@ export const exportConsultationsServerFn = createServerFn({ method: "POST" })
  * Server Function: Export Funnel Events (CSV - Backward Compatibility)
  */
 export const exportFunnelEventsServerFn = createServerFn({ method: "POST" })
+  .middleware([adminAuthorization])
   .validator((data: unknown) =>
     z
       .object({
@@ -419,6 +427,7 @@ export const exportFunnelEventsServerFn = createServerFn({ method: "POST" })
  * Server Function: Generate Business Intelligence Report (Markdown & Executive Summary)
  */
 export const generateBusinessReportServerFn = createServerFn({ method: "POST" })
+  .middleware([adminAuthorization])
   .validator((data: unknown) =>
     z
       .object({

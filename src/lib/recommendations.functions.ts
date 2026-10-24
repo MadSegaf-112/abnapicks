@@ -1,3 +1,4 @@
+import { RecommendationSchema, type Recommendation } from "./recommendation-contract";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { buildCustomerProfile } from "@/data/customer-profile";
@@ -17,40 +18,32 @@ const AnswerSchema = z.object({
   intensity: z.union([z.number(), z.string()]).optional(),
   occasion: z.string().optional(),
   gender: z.string().optional(),
+  perfume_type: z.string().optional(),
   age_range: z.string().optional(),
   occupation: z.string().optional(),
   price_range: z.string().optional(),
+  excludeFragranceIds: z.array(z.string()).optional(),
+  excludePerfumeNames: z.array(z.string()).optional(),
+  isRegeneration: z.boolean().optional(),
 });
 
-const RecommendationSchema = z.object({
-  rank: z.number(),
-  name: z.string(),
-  house: z.string(),
-  category: z.string(),
-  match_percent: z.number(),
-  description: z.string(),
-  story: z.string(),
-  top_notes: z.array(z.string()),
-  middle_notes: z.array(z.string()),
-  base_notes: z.array(z.string()),
-  why_match: z.string(),
-  projection: z.string(),
-  longevity: z.string(),
-  mood_tags: z.array(z.string()),
-  occasions: z.array(z.string()),
-  aura: z.string(),
-});
-
-export type Recommendation = z.infer<typeof RecommendationSchema>;
+export type { Recommendation } from "./recommendation-contract";
 
 export const getRecommendations = createServerFn({ method: "POST" })
   .validator((data: unknown) => AnswerSchema.parse(data))
   .handler(async ({ data }) => {
     const isDev = process.env.NODE_ENV !== "production";
+    const isRegeneration = Boolean(data.isRegeneration);
+    const excludeIds = data.excludeFragranceIds || [];
+    const excludeNames = data.excludePerfumeNames || [];
+
     if (isDev) {
       console.log(
         "[Runtime Diagnostic 1] >>> getRecommendations() triggered by client. SessionId:",
         data.sessionId || "(auto-assign)",
+        isRegeneration
+          ? `[Regeneration Mode, Exclusions: ${excludeIds.length} IDs, ${excludeNames.length} Names]`
+          : "[Initial Generation]",
       );
     }
 
@@ -63,13 +56,39 @@ export const getRecommendations = createServerFn({ method: "POST" })
       intensity: data.intensity,
       occasion: data.occasion,
       gender: data.gender,
+      perfume_type: data.perfume_type,
       age_range: data.age_range,
       occupation: data.occupation,
       price_range: data.price_range,
     });
 
-    // 2. Run deterministic scoring engine against authoritative ABNA fragrance dataset (444 validated products)
-    const scoringResult = scoreAndRankFragrances(customerProfile, ABNA_RECOMMENDATION_DATASET, 3);
+    if (isRegeneration) {
+      const initial = scoreAndRankFragrances(customerProfile, ABNA_RECOMMENDATION_DATASET, 3);
+      excludeIds.push(...initial.recommendations.map((rec) => rec.fragranceId));
+      excludeNames.push(...initial.recommendations.map((rec) => rec.fragrance.name));
+    }
+
+    // 2. Run deterministic scoring engine against authoritative ABNA fragrance dataset (408 validated products)
+    const scoringResult = scoreAndRankFragrances(customerProfile, ABNA_RECOMMENDATION_DATASET, 3, {
+      excludeIds,
+      excludeNames,
+    });
+
+    // If regeneration was requested but fewer than 3 eligible alternatives exist
+    if (isRegeneration && scoringResult.recommendations.length < 3) {
+      if (isDev) {
+        console.warn(
+          `[RecommendationsHandler] Insufficient eligible candidates for regeneration (found ${scoringResult.recommendations.length}, required 3). Returning empty regeneration result.`,
+        );
+      }
+      return {
+        recommendations: [] as Recommendation[],
+        customerProfile,
+        isRegeneration: true,
+        insufficientAlternatives: true,
+        message: "There are not enough alternative recommendations for the current preferences.",
+      };
+    }
 
     // 3. Generate personalized editorial narrative with Gemini (or fallback safely)
     const config = getServerConfig();
@@ -93,28 +112,34 @@ export const getRecommendations = createServerFn({ method: "POST" })
       console.log(
         `[Runtime Diagnostic 2] Recommendations generated successfully. Count: ${validatedRecs.length}, Top Recommendation: "${validatedRecs[0]?.name}" (${validatedRecs[0]?.house})`,
       );
-      console.log("[Runtime Diagnostic 3] Invoking saveCustomerSession()...");
     }
 
-    // 6. Asynchronously persist completed consultation session for Admin Analytics
+    // 6. Asynchronously persist completed initial consultation session for Admin Analytics
     // Protected by failure-isolation: persistence failure does NOT interrupt recommendation delivery
-    try {
-      const saveRes = await saveCustomerSession({
-        sessionId: data.sessionId,
-        clientPlatform: data.clientPlatform || "kiosk_web",
-        customerProfile,
-        recommendations: validatedRecs,
-      });
-      if (isDev) {
-        console.log("[Runtime Diagnostic 4] saveCustomerSession() completed with result:", saveRes);
+    if (!isRegeneration) {
+      try {
+        const saveRes = await saveCustomerSession({
+          sessionId: data.sessionId,
+          clientPlatform: data.clientPlatform || "kiosk_web",
+          customerProfile,
+          recommendations: validatedRecs,
+        });
+        if (isDev) {
+          console.log(
+            "[Runtime Diagnostic 4] saveCustomerSession() completed with result:",
+            saveRes,
+          );
+        }
+      } catch (persistErr) {
+        // Safe logging without throwing or breaking customer flow
+        console.warn("[RecommendationsHandler] Session persistence failed safely:", persistErr);
       }
-    } catch (persistErr) {
-      // Safe logging without throwing or breaking customer flow
-      console.warn("[RecommendationsHandler] Session persistence failed safely:", persistErr);
     }
 
     return {
       recommendations: validatedRecs,
       customerProfile,
+      isRegeneration,
+      insufficientAlternatives: false,
     };
   });

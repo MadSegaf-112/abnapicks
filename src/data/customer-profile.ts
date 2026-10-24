@@ -179,6 +179,7 @@ export function buildCustomerProfile(answers: QuizAnswers): CustomerPreferencePr
       intensity_raw: rawIntensity,
       occasion: answers.occasion,
       gender: answers.gender,
+      perfume_type: answers.perfume_type,
       age_range: answers.age_range,
       occupation: answers.occupation,
       price_range: answers.price_range,

@@ -1,31 +1,221 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, Check, Sparkles } from "lucide-react";
-import { useState, useEffect } from "react";
-import type { QuizStep } from "@/data/quiz";
-import { Polaroid } from "./Polaroid";
+import { useMotionPreference } from "@/hooks/use-motion-preference";
+import { useState } from "react";
+import { useIsPresent, motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import type { QuizStep, ImageOption } from "@/data/quiz";
+import { MoodQuestion } from "./MoodQuestion";
+import { PhotoChoices } from "./PhotoChoices";
 import { EnergySlider } from "./EnergySlider";
+import { PagedScentChoices } from "./PagedScentChoices";
 
 type Props = {
   step: QuizStep;
   index: number;
   total: number;
   answer: unknown;
-  onAnswer: (v: unknown) => void;
+  allAnswers?: Record<string, unknown>;
+  onAnswer: (value: unknown) => void;
+  onCommit: (value: unknown, extra?: Record<string, unknown>) => void;
+  onUpdateAnswer?: (key: string, value: unknown) => void;
   onBack: () => void;
   onNext: () => void;
   isLast: boolean;
 };
 
-function isCompleted(step: QuizStep, answer: unknown) {
-  if (step.type === "slider") {
-    return typeof answer === "number" && answer >= step.min && answer <= step.max;
+function QuestionTitle({ step }: { step: QuizStep }) {
+  switch (step.id) {
+    case "scent_family":
+      return (
+        <>
+          Aroma seperti apa yang
+          <br />
+          <em>paling kamu suka?</em>
+        </>
+      );
+    case "occasion":
+      return (
+        <>
+          Parfum ini paling sering
+          <br />
+          kamu <em>pakai untuk apa?</em>
+        </>
+      );
+    case "intensity":
+      return (
+        <>
+          Kamu suka parfum
+          <br />
+          yang <em>seberapa terasa?</em>
+        </>
+      );
+    case "atmosphere":
+      return (
+        <>
+          Suasana seperti apa yang
+          <br />
+          <em>paling kamu suka?</em>
+        </>
+      );
+    case "age_range":
+      return (
+        <>
+          Kamu masuk range
+          <br />
+          <em>usia yang mana?</em>
+        </>
+      );
+    case "gender":
+      return (
+        <>
+          Pilih <em>jenis kelamin</em> dan
+          <br />
+          <em>kategori parfum</em> yang kamu cari?
+        </>
+      );
+    case "price_range":
+      return (
+        <>
+          Untuk ukuran parfum <em className="abna-flow__blue">30ml</em>
+          <br />
+          kamu nyaman dengan range harga?
+        </>
+      );
+    case "occupation":
+      return (
+        <>
+          Apa aktivitas utama atau
+          <br />
+          <em>pekerjaanmu saat ini?</em>
+        </>
+      );
+    default:
+      return <>{step.title}</>;
   }
-  if (step.type === "image-single") return typeof answer === "string" && answer.trim().length > 0;
-  if (step.type === "image-multi") return Array.isArray(answer) && answer.length > 0;
-  if (step.type === "text-single") {
-    return typeof answer === "string" && answer.trim().length > 0;
-  }
-  return false;
+}
+
+function AgeSelector({
+  options,
+  answer,
+  onAnswer,
+}: {
+  options: ImageOption[];
+  answer: unknown;
+  onAnswer: (value: string) => void;
+}) {
+  const shouldReduceMotion = useMotionPreference();
+  const selected = options.findIndex((option) => option.id === answer);
+  const move = (direction: number) => {
+    const next =
+      selected < 0
+        ? direction > 0
+          ? 0
+          : options.length - 1
+        : (selected + direction + options.length) % options.length;
+    if (options[next]) onAnswer(options[next].id);
+  };
+
+  const label =
+    selected < 0
+      ? "Pilih usia"
+      : options[selected].label
+          .replace(" tahun", "")
+          .replace("Di bawah ", "< ")
+          .replace(" ke atas", "+");
+
+  return (
+    <div className="abna-age">
+      <motion.button
+        type="button"
+        onClick={() => move(-1)}
+        aria-label="Kelompok usia sebelumnya"
+        whileHover={shouldReduceMotion ? undefined : { scale: 1.08 }}
+        whileTap={shouldReduceMotion ? undefined : { scale: 0.92 }}
+      >
+        <ArrowLeft />
+      </motion.button>
+      <output aria-live="polite" className="relative flex items-center justify-center">
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={label}
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -8 }}
+            transition={{ duration: shouldReduceMotion ? 0.08 : 0.16 }}
+          >
+            {label}
+          </motion.span>
+        </AnimatePresence>
+      </output>
+      <motion.button
+        type="button"
+        onClick={() => move(1)}
+        aria-label="Kelompok usia berikutnya"
+        whileHover={shouldReduceMotion ? undefined : { scale: 1.08 }}
+        whileTap={shouldReduceMotion ? undefined : { scale: 0.92 }}
+      >
+        <ArrowRight />
+      </motion.button>
+    </div>
+  );
+}
+
+function OccupationChoices({
+  options,
+  answer,
+  onAnswer,
+}: {
+  options: ImageOption[];
+  answer: unknown;
+  onAnswer: (value: string) => void;
+}) {
+  const shouldReduceMotion = useMotionPreference();
+  const [custom, setCustom] = useState(
+    () =>
+      answer === "other" ||
+      (typeof answer === "string" && !options.some((option) => option.id === answer)),
+  );
+
+  return (
+    <div className="abna-occupation">
+      <div className="abna-text-options">
+        {options.map((option) => (
+          <motion.button
+            key={option.id}
+            type="button"
+            aria-pressed={option.id === "other" ? custom : answer === option.id}
+            onClick={() => {
+              setCustom(option.id === "other");
+              onAnswer(option.id);
+            }}
+            whileHover={shouldReduceMotion ? undefined : { y: -2 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+          >
+            {option.label}
+          </motion.button>
+        ))}
+      </div>
+
+      <AnimatePresence>
+        {custom && (
+          <motion.label
+            className="abna-occupation__custom"
+            initial={{ opacity: 0, height: 0, y: -6 }}
+            animate={{ opacity: 1, height: "auto", y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -6 }}
+            transition={{ duration: shouldReduceMotion ? 0.1 : 0.22 }}
+          >
+            Tuliskan pekerjaanmu
+            <input
+              type="text"
+              value={typeof answer === "string" && answer !== "other" ? answer : ""}
+              onChange={(event) => onAnswer(event.target.value || "other")}
+              placeholder="Contoh: Fotografer"
+            />
+          </motion.label>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 export function QuizScreen({
@@ -33,323 +223,282 @@ export function QuizScreen({
   index,
   total,
   answer,
+  allAnswers,
   onAnswer,
+  onCommit,
+  onUpdateAnswer,
   onBack,
   onNext,
   isLast,
 }: Props) {
-  const [customOccupation, setCustomOccupation] = useState("");
-  const isCustomOccupationSelected =
-    step.id === "occupation" &&
-    (answer === "other" ||
-      (typeof answer === "string" &&
-        "options" in step &&
-        !step.options.some((o) => o.id === answer && o.id !== "other")));
+  const isPresent = useIsPresent();
+  const shouldReduceMotion = useMotionPreference();
 
-  // Synchronize custom occupation text if answer is already a custom string
-  useEffect(() => {
-    if (step.id === "occupation" && "options" in step) {
-      if (typeof answer === "string" && !step.options.some((o) => o.id === answer)) {
-        setCustomOccupation(answer);
-      } else if (answer === "other") {
-        setCustomOccupation("");
-      }
+  if (step.id === "mood") {
+    return (
+      <MoodQuestion
+        options={step.options}
+        answer={answer}
+        onAnswer={onCommit}
+        onBack={onBack}
+        index={index}
+        total={total}
+        inert={!isPresent}
+      />
+    );
+  }
+
+  const perfumeType = allAnswers?.perfume_type;
+
+  const canNext = (() => {
+    if (step.type === "slider") {
+      return (
+        typeof answer === "number" &&
+        Number.isFinite(answer) &&
+        answer >= step.min &&
+        answer <= step.max
+      );
     }
-  }, [step, answer]);
 
-  const canNext = isCompleted(step, answer);
+    if (step.type === "image-multi") {
+      return (
+        Array.isArray(answer) &&
+        answer.some((id) => step.options.some((option) => option.id === id))
+      );
+    }
 
-  // Derive step category name according to official ABNA Picks structure
-  const STEP_CATEGORIES: Record<string, string> = {
-    mood: "Karakter Aroma",
-    scent_family: "Jenis Aroma Favorit",
-    atmosphere: "Suasana Aroma",
-    occasion: "Momen Pemakaian",
-    intensity: "Intensitas Aroma",
-    gender: "Profil Pembeli",
-    age_range: "Range Usia",
-    occupation: "Aktivitas Utama",
-    price_range: "Range Harga Nyaman",
-  };
-  const categoryName = STEP_CATEGORIES[step.id] || "Preferensi";
+    if (step.id === "occupation") {
+      return typeof answer === "string" && answer.trim().length > 0 && answer !== "other";
+    }
+
+    const validOption = step.options.some((option) => option.id === answer);
+
+    if (step.id === "gender") {
+      return validOption && ["masculine", "feminine", "unisex"].includes(String(perfumeType));
+    }
+
+    return validOption;
+  })();
+
+  const centered = ["intensity", "age_range", "gender", "occupation", "price_range"].includes(
+    step.id,
+  );
 
   return (
-    <section className="relative flex flex-1 flex-col px-4 pt-6 pb-36 sm:px-8 md:px-12 md:pt-8">
-      {/* Visual Step Progress Area */}
-      <div className="mx-auto w-full max-w-xl">
-        <div className="flex items-center justify-between text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-          <span className="flex items-center gap-1.5 font-medium text-[var(--sand-deep)]">
-            <Sparkles className="h-3.5 w-3.5 text-[var(--sand-deep)]" />
-            <span>
-              Pertanyaan {index + 1} dari {total} · {categoryName}
-            </span>
+    <section
+      className={`abna-flow abna-quiz-fit abna-quiz-classic abna-flow--${step.id}`}
+      inert={!isPresent}
+      aria-labelledby="abna-flow-title"
+    >
+      <div className={`abna-flow__heading ${centered ? "is-centered" : ""}`}>
+        <p className="abna-flow__kicker">
+          {step.kicker}{" "}
+          <span>
+            {index + 1} / {total}
           </span>
-          <span className="font-mono text-[11px] font-bold text-foreground">
-            {Math.round(((index + 1) / total) * 100)}%
-          </span>
-        </div>
-
-        {/* Progress Bar with Sand Gold to Deep Emerald fill */}
-        <div className="mt-2 h-1 w-full overflow-hidden rounded-none bg-border/70">
-          <motion.div
-            className="h-full rounded-none bg-gradient-to-r from-[var(--sand-gold)] to-[var(--emerald-sig)]"
-            initial={false}
-            animate={{ width: `${((index + 1) / total) * 100}%` }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-          />
-        </div>
-      </div>
-
-      {/* Question Header Block */}
-      <motion.div
-        key={step.id + "-title"}
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="mx-auto mt-6 max-w-3xl text-center"
-      >
-        <p className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold tracking-[0.28em] text-[var(--sand-deep)] uppercase">
-          <span>{step.kicker}</span>
         </p>
 
-        <h2 className="font-display mt-3 text-3xl sm:text-4xl md:text-5xl lg:text-[48px] font-black tracking-[-0.035em] leading-[0.95] text-balance text-foreground">
-          {step.title}
+        <h2 tabIndex={-1} id="abna-flow-title" className="abna-flow__title">
+          <QuestionTitle step={step} />
         </h2>
 
-        <p className="mx-auto mt-3 max-w-xl text-balance font-body text-xs sm:text-sm md:text-base leading-relaxed text-muted-foreground font-normal">
-          {step.subtitle}
-        </p>
-      </motion.div>
+        {(centered || step.type === "image-multi") && (
+          <p
+            className="abna-flow__description"
+            aria-live={step.type === "image-multi" ? "polite" : undefined}
+          >
+            {step.type === "image-multi"
+              ? Array.isArray(answer) && answer.length
+                ? `${answer.length} aroma dipilih. Padukan lagi, atau lanjutkan.`
+                : "Pilih minimal satu aroma. Kamu boleh memadukan beberapa."
+              : step.subtitle}
+          </p>
+        )}
 
-      {/* Interactive Options Presentation */}
-      <div className="mt-8 flex-1 md:mt-10">
-        {/* SLIDER TYPE (Question #5: Intensity) */}
+        <span className="sr-only">
+          Pertanyaan {index + 1} dari {total}
+        </span>
+      </div>
+
+      <div className="abna-flow__body">
+        {step.id === "scent_family" && (
+          <PagedScentChoices options={step.options} answer={answer} onAnswer={onAnswer} />
+        )}
+
+        {step.id === "occasion" && (
+          <PhotoChoices
+            options={step.options}
+            answer={answer}
+            layout="occasion"
+            onAnswer={onCommit}
+          />
+        )}
+
+        {step.id === "atmosphere" && (
+          <PhotoChoices
+            options={step.options}
+            answer={answer}
+            layout="atmosphere"
+            onAnswer={onCommit}
+          />
+        )}
+
         {step.type === "slider" && (
-          <div className="mx-auto max-w-2xl py-4">
-            <EnergySlider
-              min={step.min}
-              max={step.max}
-              value={typeof answer === "number" ? answer : 3}
-              onChange={(v) => onAnswer(v)}
-              labels={step.labels}
-              valueLabels={step.valueLabels}
-            />
+          <EnergySlider
+            min={step.min}
+            max={step.max}
+            value={typeof answer === "number" ? answer : Math.round((step.min + step.max) / 2)}
+            labels={step.labels}
+            valueLabels={step.valueLabels}
+            onChange={onAnswer}
+          />
+        )}
+
+        {step.id === "age_range" && (
+          <AgeSelector options={step.options} answer={answer} onAnswer={onAnswer} />
+        )}
+
+        {step.id === "gender" && (
+          <div className="abna-profile">
+            <div className="abna-profile__genders">
+              {[...step.options]
+                .sort((a, b) => Number(b.id === "male") - Number(a.id === "male"))
+                .map((option) => (
+                  <motion.button
+                    key={option.id}
+                    type="button"
+                    className="abna-profile__gender"
+                    aria-pressed={answer === option.id}
+                    onClick={() => {
+                      onAnswer(option.id);
+
+                      if (perfumeType) onCommit(option.id, { perfume_type: perfumeType });
+                    }}
+                    whileHover={shouldReduceMotion ? undefined : { y: -3 }}
+                    whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+                  >
+                    <img src={option.image} alt="" />
+                    <span>{option.label}</span>
+                  </motion.button>
+                ))}
+            </div>
+
+            <p className="abna-profile__hint">
+              Pilih jenis kelamin dan kategori parfum yang kamu cari.
+            </p>
+            <div className="abna-profile__types" aria-label="Kategori parfum">
+              {[
+                { id: "masculine", label: "Masculine" },
+                { id: "feminine", label: "Feminine" },
+                { id: "unisex", label: "Unisex" },
+              ].map((type) => (
+                <motion.button
+                  key={type.id}
+                  type="button"
+                  className={`abna-profile__type abna-profile__type--${type.id}`}
+                  aria-pressed={perfumeType === type.id}
+                  onClick={() => {
+                    onUpdateAnswer?.("perfume_type", type.id);
+                    if (step.options.some((option) => option.id === answer))
+                      onCommit(answer, { perfume_type: type.id });
+                  }}
+                  whileHover={shouldReduceMotion ? undefined : { scale: 1.03 }}
+                  whileTap={shouldReduceMotion ? undefined : { scale: 0.97 }}
+                >
+                  {type.label}
+                </motion.button>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* IMAGE-SINGLE TYPE (Mood, Atmosphere, Occasion, Gender) */}
-        {step.type === "image-single" && (
-          <div
-            className={`mx-auto grid grid-cols-2 gap-4 sm:gap-6 lg:gap-7 py-6 sm:py-8 ${
-              step.options.length === 2
-                ? "max-w-2xl md:grid-cols-2 lg:grid-cols-2"
-                : step.options.length === 3
-                  ? "max-w-4xl md:grid-cols-3 lg:grid-cols-3"
-                  : step.options.length === 6
-                    ? "max-w-5xl md:grid-cols-3 lg:grid-cols-3"
-                    : "max-w-6xl md:grid-cols-2 lg:grid-cols-4"
-            }`}
-          >
-            {step.options.map((opt, i) => (
-              <Polaroid
-                key={opt.id}
-                index={i}
-                label={opt.label}
-                caption={opt.caption}
-                image={opt.image || ""}
-                number={String(i + 1).padStart(2, "0")}
-                selected={answer === opt.id}
-                onClick={() => onAnswer(opt.id)}
-              />
+        {step.id === "occupation" && (
+          <OccupationChoices
+            options={step.options}
+            answer={answer}
+            onAnswer={(value) => {
+              if (value !== "other" && step.options.some((option) => option.id === value))
+                onCommit(value);
+              else onAnswer(value);
+            }}
+          />
+        )}
+
+        {step.id === "price_range" && (
+          <div className="abna-text-options abna-text-options--price">
+            {step.options.map((option) => (
+              <motion.button
+                key={option.id}
+                type="button"
+                aria-pressed={answer === option.id}
+                onClick={() => onCommit(option.id)}
+                whileHover={shouldReduceMotion ? undefined : { y: -2 }}
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+              >
+                {option.label}
+              </motion.button>
             ))}
           </div>
         )}
-
-        {/* IMAGE-MULTI TYPE (Scent Family) */}
-        {step.type === "image-multi" && (
-          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-4 sm:gap-6 py-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-            {step.options.map((opt, i) => {
-              const arr = (answer as string[] | undefined) ?? [];
-              const selected = arr.includes(opt.id);
-              return (
-                <Polaroid
-                  key={opt.id}
-                  index={i}
-                  label={opt.label}
-                  caption={opt.caption}
-                  image={opt.image || ""}
-                  number={String(i + 1).padStart(2, "0")}
-                  selected={selected}
-                  onClick={() =>
-                    onAnswer(selected ? arr.filter((x) => x !== opt.id) : [...arr, opt.id])
-                  }
-                />
-              );
-            })}
-          </div>
-        )}
-
-        {/* TEXT-SINGLE TYPE (Age Range, Occupation, Price Range) */}
-        {step.type === "text-single" && (
-          <div className="mx-auto max-w-2xl space-y-4">
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
-              {step.options.map((opt, i) => {
-                const isSelected =
-                  step.id === "occupation" && opt.id === "other"
-                    ? isCustomOccupationSelected
-                    : answer === opt.id;
-
-                const handleSelect = () => {
-                  if (step.id === "occupation" && opt.id === "other") {
-                    onAnswer(customOccupation.trim() || "other");
-                  } else {
-                    onAnswer(opt.id);
-                  }
-                };
-
-                return (
-                  <motion.button
-                    key={opt.id}
-                    type="button"
-                    onClick={handleSelect}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.03, duration: 0.25 }}
-                    whileHover={{ y: -2 }}
-                    whileTap={{ scale: 0.99 }}
-                    className={`group relative flex min-h-[52px] items-center justify-between rounded-none p-4 text-left transition-all duration-200 cursor-pointer ${
-                      isSelected
-                        ? "border-2 border-[var(--emerald-sig)] bg-[#fcfaf5] ring-1 ring-[var(--emerald-sig)] shadow-md"
-                        : "border border-border/90 bg-card shadow-xs hover:border-[var(--emerald-sig)]/60 hover:shadow-md hover:bg-[#fffcf5]"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-none font-mono text-[10px] font-semibold tracking-wider ${
-                          isSelected
-                            ? "bg-[var(--emerald-sig)] text-white"
-                            : "bg-muted/70 text-foreground"
-                        }`}
-                      >
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <span
-                        className={`font-body text-xs sm:text-sm ${
-                          isSelected
-                            ? "font-semibold text-foreground"
-                            : "font-medium text-foreground"
-                        }`}
-                      >
-                        {opt.label}
-                      </span>
-                    </div>
-
-                    <div
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-none transition-all ${
-                        isSelected
-                          ? "bg-[var(--emerald-sig)] text-white shadow-xs"
-                          : "border border-border/80 group-hover:border-foreground/40 text-transparent"
-                      }`}
-                    >
-                      <Check className="h-3 w-3" strokeWidth={2.5} />
-                    </div>
-                  </motion.button>
-                );
-              })}
-            </div>
-
-            {/* Custom Occupation Input Field when "Lainnya" is selected */}
-            {step.id === "occupation" && (
-              <AnimatePresence>
-                {isCustomOccupationSelected && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0, y: 8 }}
-                    animate={{ opacity: 1, height: "auto", y: 0 }}
-                    exit={{ opacity: 0, height: 0, y: -8 }}
-                    transition={{ duration: 0.3 }}
-                    className="overflow-hidden pt-2"
-                  >
-                    <div className="rounded-none border border-[var(--sand-gold)]/50 bg-[#fffcf5] p-4 shadow-sm">
-                      <label
-                        htmlFor="custom-occupation-input"
-                        className="block text-[11px] font-bold tracking-[0.16em] text-[var(--sand-deep)] uppercase"
-                      >
-                        Masukkan Pekerjaan Kamu
-                      </label>
-                      <input
-                        id="custom-occupation-input"
-                        type="text"
-                        value={customOccupation}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setCustomOccupation(val);
-                          onAnswer(val.trim() ? val : "other");
-                        }}
-                        placeholder="Contoh: Arsitek, Dokter, Freelancer, Seniman..."
-                        autoFocus
-                        className="mt-2 w-full rounded-none border border-border bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-foreground placeholder:text-muted-foreground/60 focus:border-[var(--emerald-sig)] focus:outline-none focus:ring-1 focus:ring-[var(--emerald-sig)]"
-                      />
-                      <p className="mt-1.5 text-[10px] text-muted-foreground">
-                        Ketik nama pekerjaan/aktivitasmu untuk melanjutkan.
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Fixed Retail Footer Navigation */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.4 }}
-        className="fixed bottom-0 left-0 right-0 z-30 border-t border-border/80 bg-background/95 px-4 py-3.5 backdrop-blur-md sm:px-8 md:px-12"
-      >
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
-          {/* Back Action */}
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-none border border-border/80 px-4 py-2.5 text-xs font-semibold tracking-wider text-muted-foreground transition-all hover:bg-card hover:text-foreground cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-            <span>KEMBALI</span>
-          </button>
+      <div className="abna-flow__actions">
+        <motion.button
+          type="button"
+          onClick={onBack}
+          className="abna-flow__back"
+          whileHover={shouldReduceMotion ? undefined : { x: -3 }}
+          whileTap={shouldReduceMotion ? undefined : { scale: 0.97 }}
+        >
+          <ArrowLeft size={18} />
+          Kembali
+        </motion.button>
 
-          {/* Central Touch Guidance Prompt */}
-          <div className="hidden font-body text-xs font-medium text-muted-foreground sm:block">
-            {step.type === "image-multi"
-              ? "Pilih satu atau beberapa jenis aroma yang paling dekat dengan seleramu"
-              : step.type === "slider"
-                ? "Geser atau sentuh angka untuk memilih tingkat kekuatan aroma"
-                : "Pilih opsi jawaban Anda untuk melanjutkan"}
-          </div>
-
-          {/* Next / Submit Action */}
+        {step.type === "slider" ||
+        step.id === "age_range" ||
+        step.type === "image-multi" ||
+        (step.id === "occupation" &&
+          typeof answer === "string" &&
+          (answer === "other" || !step.options.some((option) => option.id === answer))) ? (
           <motion.button
             type="button"
-            onClick={onNext}
-            disabled={!canNext}
-            whileHover={canNext ? { scale: 1.015 } : undefined}
-            whileTap={canNext ? { scale: 0.985 } : undefined}
-            className={`flex min-h-[48px] items-center justify-center gap-2.5 rounded-none px-7 py-3 text-xs font-semibold tracking-[0.14em] transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 ${
-              isLast
-                ? "bg-[var(--emerald-sig)] text-[#fffcf5] shadow-md shadow-[var(--emerald-sig)]/25 hover:bg-[var(--emerald-deep)] sm:text-xs"
-                : "bg-[var(--emerald-sig)] text-[#fffcf5] shadow-sm shadow-[var(--emerald-sig)]/20 hover:bg-[var(--emerald-deep)] sm:text-xs"
-            }`}
+            onClick={() => {
+              if (step.type === "slider")
+                onCommit(
+                  typeof answer === "number" ? answer : Math.round((step.min + step.max) / 2),
+                );
+              else onNext();
+            }}
+            aria-label={
+              step.type !== "slider" && !canNext
+                ? "Pilih jawaban terlebih dahulu untuk melanjutkan"
+                : undefined
+            }
+            disabled={step.type !== "slider" && !canNext}
+            className="abna-flow__next"
+            whileHover={
+              shouldReduceMotion || (step.type !== "slider" && !canNext)
+                ? undefined
+                : { scale: 1.02 }
+            }
+            whileTap={
+              shouldReduceMotion || (step.type !== "slider" && !canNext)
+                ? undefined
+                : { scale: 0.98 }
+            }
           >
-            <span>{isLast ? "TEMUKAN PARFUMKU" : "SELANJUTNYA"}</span>
-            {isLast ? (
-              <Sparkles className="h-4 w-4 text-[var(--sand-gold)]" />
-            ) : (
-              <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
-            )}
+            Selanjutnya <ArrowRight size={16} />
           </motion.button>
-        </div>
-      </motion.div>
+        ) : (
+          <span className="abna-quiz-hint">
+            {step.id === "gender"
+              ? "Lengkapi kedua pilihan untuk lanjut"
+              : isLast
+                ? "Ketuk pilihan untuk lihat hasil"
+                : "Ketuk pilihan untuk lanjut"}
+          </span>
+        )}
+      </div>
     </section>
   );
 }

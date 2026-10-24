@@ -83,12 +83,80 @@ export function adaptAbnaProductToFragrance(abna: AbnaProduct): Fragrance {
       editorialStory: abna.olfactive.editorialStory,
     },
     features: abna.derived!.features,
+    occasions: abna.olfactive.occasions,
+    timeOfDay: abna.olfactive.timeOfDay,
+    seasons: abna.olfactive.seasons,
   };
 }
 
 /**
- * Builds the complete active ABNA Recommendation Dataset (444 products).
- * Executes strict filtering to guarantee zero review/incomplete records enter candidate scoring.
+ * Normalizes a perfume name for duplicate detection and identity comparison.
+ * Invariant: trim() -> lowercase() -> collapse internal whitespace.
+ */
+export function normalizePerfumeName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * Explicitly approved set of 36 duplicate perfume product IDs to exclude
+ * from the active recommendation dataset.
+ *
+ * Invariant: Exactly 36 records excluded, resulting in 408 unique normalized perfume names.
+ */
+export const CANONICAL_EXCLUDED_PRODUCT_IDS: ReadonlySet<string> = new Set<string>([
+  // Cross-brand duplicates (8)
+  // BLACK (Keep: abna_black_aigner_vip_89)
+  "abna_black_jaguar_vip_25",
+  "abna_black_bvlgari_vip_242",
+  "abna_black_aigner_vip_256",
+  "abna_black_mercedes_benz_exclusive_306",
+  // LOVELY (Keep: abna_lovely_sarah_jessica_parker_elite_109)
+  "abna_lovely_al_rehab_vip_90",
+  "abna_lovely_sarah_jessica_parker_vip_98",
+  // PINK (Keep: abna_pink_guess_vip_95)
+  "abna_pink_benneton_vip_241",
+  // VIBRATO (Keep: abna_vibrato_xerjoff_special_one_412)
+  "abna_vibrato_sospiro_exclusive_387",
+
+  // Feminine same-brand duplicates (8)
+  "abna_omnia_amethyste_bvlgari_elite_117",
+  "abna_la_vie_est_belle_lancome_exclusive_300",
+  "abna_cherry_in_the_air_escada_vip_61",
+  "abna_sexy_gravity_escada_exclusive_156",
+  "abna_scandalous_victoria_secret_elite_123",
+  "abna_my_way_giorgio_armani_vip_431",
+  "abna_9_pm_rebel_rasasi_exclusive_230",
+  "abna_versus_versace_vip_274",
+
+  // Masculine same-brand duplicates (9)
+  "abna_desire_red_alfred_dunhill_vip_33",
+  "abna_desire_blue_alfred_dunhill_exclusive_157",
+  "abna_1_million_lucky_paco_rabanne_elite_136",
+  "abna_aventus_creed_special_one_167",
+  "abna_bali_kenzo_exclusive_409",
+  "abna_extreme_bvlgari_elite_116",
+  "abna_1_million_paco_rabanne_the_nature_329",
+  "abna_1_million_paco_rabanne_elite_459",
+  "abna_brud_faberge_brud_faberge_exclusive_265",
+
+  // Unisex same-brand duplicates (11)
+  "abna_baccarat_540_edp_maison_francis_kurkdjian_vip_100",
+  "abna_baccarat_540_edp_maison_francis_kurkdjian_exclusive_301",
+  "abna_english_pear_jomalone_elite_132",
+  "abna_acqua_digio_profondo_giorgio_armani_vip_430",
+  "abna_ombre_nomade_louis_vuitton_exclusive_437",
+  "abna_erba_pura_xerjof_exclusive_425",
+  "abna_symphony_louis_vuitton_elite_287",
+  "abna_pacific_chill_louis_vuitton_elite_284",
+  "abna_777_god_of_fire_stephane_humbert_lucas_777_elite_373",
+  "abna_afternoon_swim_louis_vuitton_exclusive_305",
+  "abna_one_only_gissah_special_one_491",
+]);
+
+/**
+ * Builds the complete active ABNA Recommendation Dataset (408 products).
+ * Executes strict filtering to guarantee zero review/incomplete records enter candidate scoring,
+ * applies approved canonical deduplication, and enforces a defensive name uniqueness invariant.
  */
 export function buildAbnaRecommendationDataset(): Fragrance[] {
   const ingestion = ingestAbnaProducts(RAW_ABNA_PRODUCTS, {
@@ -189,14 +257,53 @@ export function buildAbnaRecommendationDataset(): Fragrance[] {
         editorialStory: rawEnrichment?.editorialStory || abna.olfactive.editorialStory,
       },
       features: abna.derived!.features,
+      occasions: rawEnrichment?.occasions || abna.olfactive.occasions,
+      timeOfDay: rawEnrichment?.timeOfDay || abna.olfactive.timeOfDay,
+      seasons: rawEnrichment?.seasons || abna.olfactive.seasons,
     });
   }
 
-  return fragranceList;
+  // Apply approved canonical exclusions and defensive normalized-name uniqueness guard
+  const deduplicatedList: Fragrance[] = [];
+  const seenNormalizedNames = new Set<string>();
+  const unexpectedDuplicates: string[] = [];
+
+  for (const fragrance of fragranceList) {
+    if (CANONICAL_EXCLUDED_PRODUCT_IDS.has(fragrance.id)) {
+      continue;
+    }
+
+    const normalizedName = normalizePerfumeName(fragrance.name);
+
+    if (seenNormalizedNames.has(normalizedName)) {
+      unexpectedDuplicates.push(`"${normalizedName}" (Product ID: ${fragrance.id})`);
+    } else {
+      seenNormalizedNames.add(normalizedName);
+      deduplicatedList.push(fragrance);
+    }
+  }
+
+  // Defensive failure: fail loudly if unexpected duplicates remain
+  if (unexpectedDuplicates.length > 0) {
+    throw new Error(
+      `[buildAbnaRecommendationDataset] Defensive uniqueness guard failed. Unexpected duplicates found:\n${unexpectedDuplicates.join(
+        "\n",
+      )}`,
+    );
+  }
+
+  // Strict dataset count invariant check
+  if (deduplicatedList.length !== 408) {
+    throw new Error(
+      `[buildAbnaRecommendationDataset] Dataset count invariant violated: expected 408 records, got ${deduplicatedList.length}`,
+    );
+  }
+
+  return deduplicatedList;
 }
 
 /**
  * Precomputed, immutable authoritative ABNA recommendation dataset.
- * Contains exactly 444 validated products ready for deterministic scoring.
+ * Contains exactly 408 deduplicated, validated products ready for deterministic scoring.
  */
 export const ABNA_RECOMMENDATION_DATASET: Fragrance[] = buildAbnaRecommendationDataset();

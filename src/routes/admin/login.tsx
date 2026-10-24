@@ -72,10 +72,7 @@ function AdminLoginPage() {
 
       // Verify Admin Role Authorization (app_metadata.role === "admin")
       const user = session?.user;
-      const isAdmin =
-        user?.app_metadata?.role === "admin" ||
-        user?.app_metadata?.is_admin === true ||
-        !user?.app_metadata?.role; // Default fallback for initial single-admin setups
+      const isAdmin = user?.app_metadata?.role === "admin" || user?.app_metadata?.is_admin === true;
 
       if (!isAdmin) {
         await supabase.auth.signOut();

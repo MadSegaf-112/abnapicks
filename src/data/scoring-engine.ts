@@ -94,6 +94,11 @@ export function scoreToMatchPercent(score: number): number {
   return Math.min(98, Math.max(50, Math.round(scaled)));
 }
 
+export interface ScoringOptions {
+  excludeIds?: (string | undefined)[];
+  excludeNames?: (string | undefined)[];
+}
+
 /**
  * Primary deterministic recommendation scoring engine.
  * Takes a CustomerPreferenceProfile and evaluates against the fragrance catalog.
@@ -102,6 +107,7 @@ export function scoreAndRankFragrances(
   profile: CustomerPreferenceProfile,
   dataset: Fragrance[] = FRAGRANCES,
   topCount = 3,
+  options?: ScoringOptions,
 ): DeterministicRecommendationResult {
   // 1. Safety check for empty dataset
   if (!dataset || dataset.length === 0) {
@@ -111,9 +117,66 @@ export function scoreAndRankFragrances(
     };
   }
 
-  // 2. Score every fragrance in the dataset
-  const scoredList: { fragrance: Fragrance; score: number; matchPercent: number }[] = dataset.map(
-    (item) => {
+  // Build exclusion sets for fast lookup and case-insensitive/normalized matching
+  const excludedIdSet = new Set(
+    (options?.excludeIds || [])
+      .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+      .map((id) => id.trim().toLowerCase()),
+  );
+  const excludedNameSet = new Set(
+    (options?.excludeNames || [])
+      .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+      .map((name) => name.trim().toLowerCase().replace(/\s+/g, " ")),
+  );
+  const hasExclusions = excludedIdSet.size > 0 || excludedNameSet.size > 0;
+
+  // 2. Candidate Eligibility Filtering by Perfume Type Preference
+  // Strict matching: Masculine -> masculine only, Feminine -> feminine only, Unisex -> unisex only
+  let candidatePool = dataset;
+  const requestedPerfumeType = profile.metadata.perfume_type?.toLowerCase().trim();
+
+  if (
+    requestedPerfumeType === "masculine" ||
+    requestedPerfumeType === "feminine" ||
+    requestedPerfumeType === "unisex"
+  ) {
+    const filtered = dataset.filter(
+      (item) => item.gender?.toLowerCase().trim() === requestedPerfumeType,
+    );
+
+    if (filtered.length >= topCount) {
+      candidatePool = filtered;
+    } else if (filtered.length > 0) {
+      // Defensive safety: If fewer than topCount are eligible, safely log and use available matches
+      console.warn(
+        `[ScoringEngine] Insufficient candidate pool (${filtered.length} found) for perfume_type="${requestedPerfumeType}". Using available candidates.`,
+      );
+      candidatePool = filtered;
+    } else if (!hasExclusions) {
+      // Defensive safety: Zero candidates matched perfume_type, fall back to full catalog only if no exclusions active
+      console.warn(
+        `[ScoringEngine] Zero candidates matched perfume_type="${requestedPerfumeType}". Falling back to full catalog.`,
+      );
+      candidatePool = dataset;
+    } else {
+      candidatePool = [];
+    }
+  }
+
+  // Apply candidate-level exclusion filter before scoring and rank selection
+  if (hasExclusions) {
+    candidatePool = candidatePool.filter((item) => {
+      const idMatch = excludedIdSet.has(item.id.toLowerCase());
+      const nameMatch = excludedNameSet.has(
+        item.name.trim().toLowerCase().replace(/\s+/g, " "),
+      );
+      return !idMatch && !nameMatch;
+    });
+  }
+
+  // 3. Score every fragrance in the candidate pool using existing 10D scoring
+  const scoredList: { fragrance: Fragrance; score: number; matchPercent: number }[] =
+    candidatePool.map((item) => {
       const score = calculateFeatureSimilarity(profile.features, item.features);
       const matchPercent = scoreToMatchPercent(score);
       return {
@@ -121,8 +184,7 @@ export function scoreAndRankFragrances(
         score: Number(score.toFixed(4)),
         matchPercent,
       };
-    },
-  );
+    });
 
   // 3. Sort deterministically:
   // Primary: score descending
@@ -138,9 +200,35 @@ export function scoreAndRankFragrances(
     return a.fragrance.id.localeCompare(b.fragrance.id);
   });
 
-  // 4. Extract Top N items and assign explicit 1-indexed ranks
-  const topItems = scoredList.slice(0, topCount);
-  const recommendations: ScoredFragrance[] = topItems.map((item, index) => ({
+  // 4. Extract Top N items with unique normalized perfume names and assign explicit 1-indexed ranks
+  const seenNames = new Set<string>();
+  const uniqueRanked: typeof scoredList = [];
+
+  for (const item of scoredList) {
+    const normalizedName = item.fragrance.name.trim().toLowerCase().replace(/\s+/g, " ");
+
+    if (hasExclusions) {
+      if (
+        excludedIdSet.has(item.fragrance.id.toLowerCase()) ||
+        excludedNameSet.has(normalizedName)
+      ) {
+        continue;
+      }
+    }
+
+    if (seenNames.has(normalizedName)) {
+      continue;
+    }
+
+    seenNames.add(normalizedName);
+    uniqueRanked.push(item);
+
+    if (uniqueRanked.length === topCount) {
+      break;
+    }
+  }
+
+  const recommendations: ScoredFragrance[] = uniqueRanked.map((item, index) => ({
     rank: index + 1,
     fragranceId: item.fragrance.id,
     score: item.score,

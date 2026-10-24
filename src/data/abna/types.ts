@@ -16,7 +16,12 @@ export type AbnaPriceTier = "VIP" | "ELITE" | "EXCLUSIVE" | "THE_NATURE" | "SPEC
  * Raw price tier string from Excel before normalization.
  */
 export type RawAbnaPriceTierString =
-  "VIP" | "ELITE" | "EXCLUSIVE" | "THE NATURE" | "SPECIAL ONE" | string;
+  | "VIP"
+  | "ELITE"
+  | "EXCLUSIVE"
+  | "THE NATURE"
+  | "SPECIAL ONE"
+  | string;
 
 export interface RawABNAProductRow {
   rowNumber: number;
@@ -88,10 +93,23 @@ export type AbnaOlfactiveStatus = "not_enriched" | "incomplete" | "review_requir
 export type OlfactiveVerificationStatus = "unverified" | "review_required" | "verified";
 
 /**
+ * Provenance Contextual Evidence for auditable external data enrichment.
+ */
+export interface AbnaContextualEvidence {
+  matchedExternalId?: string;
+  matchedExternalName?: string;
+  matchMethod?: "exact" | "normalized" | "alias" | "slug_bridge" | "fuzzy" | "manual";
+  matchConfidence?: number;
+  rawSeasonRanking?: Array<{ name: string; score: number }>;
+  rawOccasionRanking?: Array<{ name: string; score: number }>;
+  derivationReason?: string;
+}
+
+/**
  * Source metadata mandatory for every olfactive enrichment record.
  */
 export interface AbnaOlfactiveSourceInfo {
-  provider: string; // e.g., "Fragrantica", "ABNA Official Lab Formula", "Licensed Supplier Sheet"
+  provider: string; // e.g., "Fragrantica", "Fragella", "ABNA Official Lab Formula"
   source?: string; // Canonical source name
   sourceUrl?: string; // Verified direct external reference URL
   sourceType?: string; // "external_reference" | "official_lab_formula" | "licensed_supplier_sheet"
@@ -102,6 +120,7 @@ export interface AbnaOlfactiveSourceInfo {
   reviewer?: string;
   reference?: string;
   verificationStatus: OlfactiveVerificationStatus;
+  contextualEvidence?: AbnaContextualEvidence;
 }
 
 /**
@@ -126,6 +145,9 @@ export interface AbnaOlfactiveEnrichmentRecord {
     longevity?: string | null;
   };
   editorialStory?: string;
+  occasions?: string[];
+  timeOfDay?: "day" | "night" | "anytime";
+  seasons?: string[];
   source: AbnaOlfactiveSourceInfo;
 }
 
@@ -169,6 +191,9 @@ export interface AbnaProduct {
     accords?: string[];
     fragranceFamily?: string[];
     editorialStory?: string;
+    occasions?: string[];
+    timeOfDay?: "day" | "night" | "anytime";
+    seasons?: string[];
     source?: AbnaOlfactiveSourceInfo;
   };
 
@@ -217,7 +242,10 @@ export interface AbnaUnknownTermItem {
   status: "pending_review" | "auto_resolved" | "reviewed" | "resolved" | "mapped" | "ignored";
   suggestedMapping?: string;
   resolutionMethod?:
-    "canonical_alias" | "canonical_note" | "cross_category_note" | "manual_mapping";
+    | "canonical_alias"
+    | "canonical_note"
+    | "cross_category_note"
+    | "manual_mapping";
   canonicalTarget?: string;
   resolvedAt?: string;
   notes?: string;

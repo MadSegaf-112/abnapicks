@@ -1,429 +1,270 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, RotateCcw, MessageSquare, Download, Sparkles, Volume2 } from "lucide-react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useMotionPreference } from "@/hooks/use-motion-preference";
+import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import type { Recommendation } from "@/lib/recommendations.functions";
-import { AbnaProductCard } from "./AbnaProductCard";
+import { ResultCardDeck } from "./ResultCardDeck";
+import { Download, MessageCircle, RotateCcw, RefreshCw, Check } from "lucide-react";
 
 type Props = {
   recommendations: Recommendation[];
   onRestart: () => void;
+  onRegenerate?: () => Promise<void> | void;
+  isRegenerating?: boolean;
+  hasRegenerated?: boolean;
+  regenerationMessage?: string | null;
 };
 
-export function ResultsScreen({ recommendations, onRestart }: Props) {
+export function ResultsScreen({
+  recommendations,
+  onRestart,
+  onRegenerate,
+  isRegenerating = false,
+  hasRegenerated = false,
+  regenerationMessage = null,
+}: Props) {
+  const resultRef = useRef<HTMLElement>(null);
+  const downloadLock = useRef(false);
+  useEffect(() => {
+    resultRef.current
+      ?.querySelector<HTMLElement>("[data-discovery-title]")
+      ?.focus({ preventScroll: true });
+  }, []);
   const [downloading, setDownloading] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
-  const voiceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
+  const shouldReduceMotion = useMotionPreference();
 
   const hero = recommendations[0];
   const alternates = recommendations.slice(1);
 
-  // Clean up any active speech synthesis and timers on unmount
-  useEffect(() => {
-    return () => {
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-      if (voiceTimeoutRef.current) {
-        clearTimeout(voiceTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Primary Action: AURA AI Voice Request for Top #1 Fragrance Tester
-  const handleCobaTester = useCallback(() => {
-    if (!hero) return;
-
-    const fragranceName = hero.name;
-    const speechText = `Aku ingin mencoba atau mencium aroma ${fragranceName}.`;
-
-    // 1. Immediate tactile and visual feedback
-    setIsSpeaking(true);
-    setVoiceStatus(`Meminta tester untuk: ${fragranceName}`);
-
-    if (voiceTimeoutRef.current) {
-      clearTimeout(voiceTimeoutRef.current);
-    }
-
-    // 2. Web Speech API Execution with native Indonesian voice
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      try {
-        // Cancel any active audio so repeated clicks restart smoothly without overlap
-        window.speechSynthesis.cancel();
-
-        const utterance = new SpeechSynthesisUtterance(speechText);
-        utterance.lang = "id-ID";
-        utterance.rate = 0.95;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
-
-        // Pick Indonesian voice if available on system
-        const voices = window.speechSynthesis.getVoices();
-        const idVoice = voices.find(
-          (v) =>
-            v.lang === "id-ID" ||
-            v.lang.startsWith("id") ||
-            v.name.toLowerCase().includes("indonesia"),
-        );
-        if (idVoice) {
-          utterance.voice = idVoice;
-        }
-
-        utterance.onend = () => {
-          setIsSpeaking(false);
-          voiceTimeoutRef.current = setTimeout(() => {
-            setVoiceStatus(null);
-          }, 2500);
-        };
-
-        utterance.onerror = (e) => {
-          console.warn("[AURA AI Voice] Speech synthesis ended or cancelled:", e);
-          setIsSpeaking(false);
-          voiceTimeoutRef.current = setTimeout(() => {
-            setVoiceStatus(null);
-          }, 2000);
-        };
-
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        console.warn("[AURA AI Voice] Speech synthesis unavailable or threw error:", err);
-        setIsSpeaking(false);
-        voiceTimeoutRef.current = setTimeout(() => {
-          setVoiceStatus(null);
-        }, 3000);
-      }
-    } else {
-      // Graceful fallback if Web Speech is not supported
-      console.warn("[AURA AI Voice] Web Speech API is not supported in this browser.");
-      voiceTimeoutRef.current = setTimeout(() => {
-        setIsSpeaking(false);
-        voiceTimeoutRef.current = setTimeout(() => {
-          setVoiceStatus(null);
-        }, 2000);
-      }, 1500);
-    }
-  }, [hero]);
+  const handleRegenerateClick = () => {
+    if (isRegenerating || hasRegenerated || !onRegenerate) return;
+    onRegenerate();
+  };
 
   // Direct WhatsApp share for customer retention
   const handleWhatsAppShare = () => {
     if (!hero) return;
     const summary = `Halo ABNA Parfum, saya baru saja konsultasi di ABNA Picks.\n\n*Hasil Rekomendasi Saya:*\n01. *${hero.name}* (${hero.house}) — ${hero.match_percent}% Cocok\nKarakter: ${hero.category}\nSemerbak: ${hero.projection} | Ketahanan: ${hero.longevity}\n\nSaya ingin mencoba tester varian ini di store.`;
     const encoded = encodeURIComponent(summary);
-    window.open(`https://wa.me/?text=${encoded}`, "_blank");
+    window.open(`https://wa.me/?text=${encoded}`, "_blank", "noopener,noreferrer");
   };
 
-  // High-Resolution Canvas Card Downloader (Zero-dependency, works directly in any browser/mobile)
   const handleDownloadImage = async () => {
-    if (!hero || downloading) return;
+    if (!hero || downloadLock.current) return;
+    downloadLock.current = true;
     setDownloading(true);
-
+    setDownloadStatus(null);
     try {
+      await document.fonts.ready;
       const canvas = document.createElement("canvas");
-      canvas.width = 1080;
-      canvas.height = 1440;
       const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      // 1. Background Gradient (Luxury Emerald to Deep Onyx)
-      const grad = ctx.createLinearGradient(0, 0, 0, 1440);
-      grad.addColorStop(0, "#030d0a");
-      grad.addColorStop(0.5, "#07241c");
-      grad.addColorStop(1, "#020a07");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 1080, 1440);
-
-      // Outer border in Sand Gold
-      ctx.strokeStyle = "rgba(217, 180, 110, 0.4)";
-      ctx.lineWidth = 4;
-      ctx.strokeRect(30, 30, 1020, 1380);
-
-      // Header Brand
-      ctx.fillStyle = "#fffcf5";
-      ctx.font = "bold 38px serif";
-      ctx.textAlign = "center";
-      ctx.fillText("ABNA SIGNATURE", 540, 100);
-
-      ctx.fillStyle = "#d9b46e";
-      ctx.font = "bold 18px sans-serif";
-      ctx.letterSpacing = "6px";
-      ctx.fillText("ABNA PICKS · HASIL KONSULTASI", 540, 140);
-
-      // Hero Card Container
-      ctx.fillStyle = "rgba(6, 31, 24, 0.85)";
-      ctx.strokeStyle = "rgba(217, 180, 110, 0.6)";
-      ctx.lineWidth = 2;
-      roundRect(ctx, 60, 180, 960, 800, 24);
-      ctx.fill();
-      ctx.stroke();
-
-      // Top Tag
-      ctx.fillStyle = "#d9b46e";
-      ctx.font = "bold 20px sans-serif";
-      ctx.textAlign = "left";
-      ctx.fillText("01 - PILIHAN UTAMA KAMU", 100, 240);
-
-      // Match %
-      ctx.fillStyle = "#d9b46e";
-      ctx.font = "bold 64px sans-serif";
-      ctx.textAlign = "right";
-      ctx.fillText(`${hero.match_percent}%`, 980, 260);
-
-      ctx.fillStyle = "rgba(255, 252, 245, 0.7)";
-      ctx.font = "14px sans-serif";
-      ctx.fillText("Kecocokan", 980, 285);
-
-      // Fragrance Name
-      ctx.fillStyle = "#fffcf5";
-      ctx.font = "bold 56px serif";
-      ctx.textAlign = "left";
-      ctx.fillText(hero.name, 100, 320);
-
-      // Category & Aura
-      ctx.fillStyle = "#d9b46e";
-      ctx.font = "italic 24px serif";
-      ctx.fillText(`${hero.category} · ${hero.aura || "Signature Match"}`, 100, 365);
-
-      // Kenapa Cocok Buat Kamu
-      ctx.fillStyle = "rgba(217, 180, 110, 0.15)";
-      ctx.strokeStyle = "rgba(217, 180, 110, 0.3)";
-      ctx.lineWidth = 1;
-      roundRect(ctx, 100, 400, 880, 170, 16);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = "#d9b46e";
-      ctx.font = "bold 16px sans-serif";
-      ctx.fillText("KENAPA COCOK BUAT KAMU", 125, 435);
-
-      ctx.fillStyle = "#fffcf5";
-      ctx.font = "20px sans-serif";
-      wrapText(ctx, hero.why_match, 125, 475, 830, 30);
-
-      // Detail Aroma Notes
-      ctx.fillStyle = "#d9b46e";
-      ctx.font = "bold 18px sans-serif";
-      ctx.fillText("DETAIL AROMA", 100, 620);
-
-      ctx.fillStyle = "#fffcf5";
-      ctx.font = "18px sans-serif";
-      ctx.fillText(`• Awal: ${hero.top_notes.join(", ")}`, 100, 660);
-      ctx.fillText(`• Tengah: ${hero.middle_notes.join(", ")}`, 100, 700);
-      ctx.fillText(`• Akhir: ${hero.base_notes.join(", ")}`, 100, 740);
-
-      // Semerbak & Ketahanan
-      ctx.fillStyle = "#d9b46e";
-      ctx.font = "bold 18px sans-serif";
-      ctx.fillText(`Semerbak: ${hero.projection}   |   Ketahanan: ${hero.longevity}`, 100, 800);
-
-      ctx.font = "16px sans-serif";
-      ctx.fillStyle = "rgba(255, 252, 245, 0.8)";
-      ctx.fillText(`Tags: ${(hero.mood_tags || []).join(", ")}`, 100, 840);
-
-      // Alternatives Box
-      if (alternates.length > 0) {
-        ctx.fillStyle = "rgba(255, 252, 245, 0.05)";
-        ctx.strokeStyle = "rgba(255, 252, 245, 0.15)";
-        roundRect(ctx, 60, 1010, 960, 240, 20);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = "#d9b46e";
-        ctx.font = "bold 18px sans-serif";
-        ctx.fillText("PILIHAN ALTERNATIF DI STORE", 100, 1055);
-
-        alternates.forEach((alt, idx) => {
-          const y = 1105 + idx * 60;
-          ctx.fillStyle = "#fffcf5";
-          ctx.font = "bold 22px serif";
-          ctx.fillText(`0${alt.rank}. ${alt.name}`, 100, y);
-
-          ctx.fillStyle = "rgba(255, 252, 245, 0.7)";
-          ctx.font = "16px sans-serif";
-          ctx.fillText(`(${alt.category} · ${alt.match_percent}% Cocok)`, 380, y);
-        });
-      }
-
-      // Footer Store Callout
-      ctx.fillStyle = "#d9b46e";
-      ctx.font = "italic 20px serif";
-      ctx.textAlign = "center";
-      ctx.fillText(
-        "Tunjukkan kartu ini ke Beauty Advisor ABNA untuk mencoba tester langsung di store.",
-        540,
-        1330,
+      if (!ctx) throw new Error("Canvas tidak tersedia");
+      const font = getComputedStyle(document.querySelector(".abna-ui") || document.body).fontFamily;
+      const sections = [
+        { title: hero.house, text: hero.name, size: 64 },
+        {
+          title: "KARAKTER",
+          text: [hero.category, hero.aura].filter(Boolean).join(" · "),
+          size: 28,
+        },
+        { title: "KENAPA COCOK?", text: hero.why_match, size: 30 },
+        { title: "TOP NOTES", text: hero.top_notes.join(", ") || "Belum tersedia", size: 28 },
+        { title: "HEART NOTES", text: hero.middle_notes.join(", ") || "Belum tersedia", size: 28 },
+        { title: "BASE NOTES", text: hero.base_notes.join(", ") || "Belum tersedia", size: 28 },
+        ...alternates.map((rec) => ({
+          title: `ALTERNATIF ${rec.rank}`,
+          text: `${rec.name} (${rec.house}) · ${rec.match_percent}% cocok`,
+          size: 28,
+        })),
+      ].map((section) => {
+        ctx.font = `${section.size}px ${font}`;
+        const lines = wrapLines(ctx, section.text, 1640);
+        return { ...section, lines, height: 70 + lines.length * section.size * 1.4 };
+      });
+      canvas.width = 1920;
+      canvas.height = Math.ceil(
+        Math.max(1080, 420 + sections.reduce((sum, section) => sum + section.height, 0)),
       );
-
-      // Trigger download
+      ctx.fillStyle = "#fffcf6";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#f0eeeb";
+      roundRect(ctx, 80, 160, 1760, canvas.height - 250, 40);
+      ctx.fill();
+      ctx.fillStyle = "#3a5b7d";
+      ctx.font = `bold 42px ${font}`;
+      ctx.fillText("ABNA PICKS · HASIL KONSULTASI", 140, 105);
+      ctx.font = `bold 48px ${font}`;
+      ctx.fillText(`${hero.match_percent}% cocok`, 140, 240);
+      let y = 315;
+      for (const section of sections) {
+        ctx.fillStyle = "#3a5b7d";
+        ctx.font = `bold 22px ${font}`;
+        ctx.fillText(section.title, 140, y);
+        y += 42;
+        ctx.fillStyle = "#1c2732";
+        ctx.font = `${section.size}px ${font}`;
+        for (const line of section.lines) {
+          ctx.fillText(line, 140, y);
+          y += section.size * 1.4;
+        }
+        y += 28;
+      }
+      ctx.fillStyle = "#3a5b7d";
+      ctx.font = `24px ${font}`;
+      ctx.fillText(
+        "Tunjukkan hasil ini ke Beauty Advisor ABNA untuk mencoba tester di store.",
+        140,
+        canvas.height - 40,
+      );
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (value) => (value ? resolve(value) : reject(new Error("PNG gagal dibuat"))),
+          "image/png",
+        );
+      });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.download = `ABNA-Picks-${hero.name.replace(/\s+/g, "_")}.png`;
-      link.href = canvas.toDataURL("image/png");
+      link.download = `ABNA-Picks-${hero.name.replace(/[^a-z0-9_-]+/gi, "_")}.png`;
+      link.href = url;
       link.click();
-    } catch (e) {
-      console.error("Gagal mendownload hasil rekomendasi:", e);
+      setDownloadStatus("Hasil siap disimpan. Cek unduhan di perangkatmu.");
+      window.setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (error) {
+      console.error("Gagal mengunduh hasil:", error);
+      setDownloadStatus("Gambar belum berhasil dibuat. Silakan coba lagi.");
     } finally {
+      downloadLock.current = false;
       setDownloading(false);
     }
   };
 
+  const btnVariants = shouldReduceMotion
+    ? {}
+    : {
+        whileHover: { scale: 1.04, transition: { duration: 0.15 } },
+        whileTap: { scale: 0.96, transition: { duration: 0.1 } },
+      };
+
+  const containerVariants: Variants = shouldReduceMotion
+    ? {}
+    : {
+        hidden: { opacity: 0 },
+        visible: {
+          opacity: 1,
+          transition: { staggerChildren: 0.08, delayChildren: 0.15 },
+        },
+      };
+
+  const itemVariants: Variants = shouldReduceMotion
+    ? {}
+    : {
+        hidden: { opacity: 0, y: 18 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+      };
+
   return (
-    <section className="relative flex flex-1 flex-col px-4 pt-6 pb-36 sm:px-8 md:px-12 md:pt-10">
-      {/* 1. Results Editorial Masthead */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="mx-auto max-w-3xl text-center"
-      >
-        {/* Editorial Kicker */}
-        <p className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold tracking-[0.28em] text-[var(--sand-deep)] uppercase">
-          <Sparkles className="h-3.5 w-3.5 text-[var(--sand-gold)]" />
-          <span>HASIL ABNA PICKS</span>
-        </p>
-
-        {/* High-Contrast Editorial Heading */}
-        <h2 className="font-display mt-3 text-3xl font-black tracking-[-0.035em] leading-[0.95] text-balance text-foreground sm:text-4xl md:text-5xl lg:text-[48px]">
-          Aroma Ini Dibuat untuk Seleramu
-        </h2>
-
-        {/* Supporting Context */}
-        <p className="mx-auto mt-3 max-w-xl text-balance font-body text-xs sm:text-sm md:text-base leading-relaxed text-muted-foreground font-normal">
-          Dari jawabanmu, kami pilihkan parfum yang paling dekat dengan karakter, selera, dan momen
-          pemakaianmu. Coba hirup pelan, lalu rasakan kesan pertamanya.
-        </p>
-      </motion.div>
-
-      {/* 2. Main Content Flow: Hero Card (#1) + Side-by-Side Alternates (#2 & #3) */}
-      <div className="mx-auto mt-8 w-full max-w-5xl space-y-10 sm:space-y-12 md:mt-10">
-        {/* HERO #1 RECOMMENDATION CARD */}
-        {hero && (
-          <AbnaProductCard
-            rec={hero}
-            isHero={true}
-            onCobaTester={handleCobaTester}
-            isSpeaking={isSpeaking}
-          />
-        )}
-
-        {/* ALTERNATIVES SECTION (#2 & #3) */}
-        {alternates.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 border-b border-[var(--sand-gold)]/20 pb-2">
-              <span className="h-2 w-2 rounded-full bg-[var(--sand-gold)]" />
-              <h4 className="text-[11px] sm:text-xs font-bold tracking-[0.22em] text-[var(--sand-deep)] uppercase">
-                Pilihan Alternatif Karakter Serupa
-              </h4>
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-2">
-              {alternates.map((rec) => (
-                <AbnaProductCard key={rec.rank} rec={rec} isHero={false} />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 3. UNIFIED RETAIL CONVERSION BAR (3-Tier Hierarchy) */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5, duration: 0.5 }}
-        className="mx-auto mt-12 flex w-full max-w-2xl flex-col items-center justify-center space-y-4 sm:mt-16"
-      >
-        {/* Voice Active Status Feedback (Live Notification Region) */}
-        <div aria-live="polite" className="h-6 flex items-center justify-center">
-          <AnimatePresence>
-            {voiceStatus && (
+    <section ref={resultRef} className="abna-results">
+      {hero ? (
+        <motion.div
+          variants={containerVariants}
+          initial={shouldReduceMotion ? undefined : "hidden"}
+          animate={shouldReduceMotion ? undefined : "visible"}
+        >
+          <motion.div variants={itemVariants}>
+            <AnimatePresence mode="wait">
               <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--sand-gold)]/40 bg-[var(--sand-gold)]/20 px-4 py-1 text-xs font-semibold text-[var(--sand-deep)] shadow-xs"
+                key={recommendations[0]?.name ?? "deck"}
+                initial={shouldReduceMotion ? undefined : { opacity: 0 }}
+                animate={shouldReduceMotion ? undefined : { opacity: 1 }}
+                exit={shouldReduceMotion ? undefined : { opacity: 0 }}
+                transition={{ duration: 0.3 }}
               >
-                <span className="h-2 w-2 rounded-full bg-[var(--terracotta)] animate-ping" />
-                <span>{voiceStatus}</span>
+                <ResultCardDeck recommendations={recommendations} />
               </motion.div>
+            </AnimatePresence>
+          </motion.div>
+
+          <p className="abna-results__regenerate-note" id="regenerate-guidance">
+            {hasRegenerated
+              ? "Kesempatan alternatif sudah digunakan. Simpan pilihanmu atau mulai perjalanan baru."
+              : "Belum menemukan yang pas? Jelajahi 3 alternatif satu kali dalam sesi ini."}
+          </p>
+          <motion.div className="abna-results__actions" variants={itemVariants}>
+            <motion.button
+              type="button"
+              onClick={handleDownloadImage}
+              disabled={downloading}
+              {...btnVariants}
+            >
+              <Download size={18} aria-hidden="true" />
+              {downloading ? "Menyiapkan..." : "Download Hasil"}
+            </motion.button>
+
+            <motion.button type="button" onClick={handleWhatsAppShare} {...btnVariants}>
+              <MessageCircle size={18} aria-hidden="true" />
+              Bagikan ke WhatsApp
+            </motion.button>
+
+            {hasRegenerated ? (
+              <button type="button" disabled className="is-primary" aria-disabled="true">
+                <Check size={18} aria-hidden="true" />
+                Rekomendasi Diperbarui
+              </button>
+            ) : (
+              <motion.button
+                type="button"
+                onClick={handleRegenerateClick}
+                aria-describedby="regenerate-guidance"
+                aria-busy={isRegenerating}
+                disabled={isRegenerating || !onRegenerate}
+                className="is-primary"
+                {...btnVariants}
+              >
+                <RefreshCw
+                  size={18}
+                  className={isRegenerating ? "animate-spin" : ""}
+                  aria-hidden="true"
+                />
+                {isRegenerating ? "Menyiapkan rekomendasi alternatif..." : "Coba Rekomendasi Lain"}
+              </motion.button>
+            )}
+
+            <motion.button
+              type="button"
+              onClick={onRestart}
+              className="is-restart"
+              {...btnVariants}
+            >
+              <RotateCcw size={18} aria-hidden="true" />
+              Mulai Ulang
+            </motion.button>
+          </motion.div>
+
+          <AnimatePresence mode="wait">
+            {(regenerationMessage || downloadStatus) && (
+              <motion.p
+                key={regenerationMessage ?? downloadStatus ?? "status"}
+                className="abna-results__status"
+                role="status"
+                initial={shouldReduceMotion ? undefined : { opacity: 0, y: 6 }}
+                animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                exit={shouldReduceMotion ? undefined : { opacity: 0, y: -6 }}
+                transition={{ duration: 0.25 }}
+              >
+                {downloadStatus || regenerationMessage}
+              </motion.p>
             )}
           </AnimatePresence>
-        </div>
-
-        {/* TIER 1: DOMINANT PRIMARY CONVERSION (Coba Tester di Store) */}
-        <motion.button
-          type="button"
-          onClick={handleCobaTester}
-          whileHover={{ scale: 1.015, y: -2 }}
-          whileTap={{ scale: 0.985 }}
-          aria-label={`Coba tester di store untuk ${hero?.name || "parfum utama"}`}
-          className={`group relative flex min-h-[54px] w-full flex-col items-center justify-center gap-1 rounded-2xl px-8 py-3.5 text-center transition-all duration-300 cursor-pointer shadow-md ${
-            isSpeaking
-              ? "bg-[var(--terracotta)] text-white shadow-xl shadow-[var(--terracotta)]/30 ring-2 ring-[var(--sand-gold)]"
-              : "bg-[var(--emerald-sig)] text-white shadow-lg shadow-[var(--emerald-sig)]/25 hover:bg-[var(--emerald-deep)] hover:shadow-xl hover:shadow-[var(--emerald-sig)]/35"
-          }`}
-        >
-          <div className="flex items-center gap-2 text-xs sm:text-sm font-bold tracking-[0.16em] uppercase">
-            {isSpeaking ? (
-              <Volume2 className="h-4 w-4 text-[var(--sand-gold)] animate-pulse" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4 text-[var(--sand-gold)]" />
-            )}
-            <span>{isSpeaking ? "MEMANGGIL BEAUTY ADVISOR..." : "Coba Tester di Store"}</span>
-          </div>
-          <span className="text-[11px] text-white/85">
-            {isSpeaking
-              ? `Menyuarakannya ke store: “${hero?.name}”`
-              : "Tunjukkan hasil ini ke Beauty Advisor ABNA"}
-          </span>
-        </motion.button>
-
-        {/* TIER 2: SECONDARY UTILITY ACTIONS (Download & WhatsApp Side-by-Side) */}
-        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
-          {/* Download Canvas Card */}
-          <button
-            type="button"
-            onClick={handleDownloadImage}
-            disabled={downloading}
-            className="flex min-h-[50px] w-full flex-col items-center justify-center gap-0.5 rounded-xl border border-[var(--sand-gold)]/35 bg-card/80 px-4 py-2.5 text-center text-foreground shadow-xs transition-all hover:bg-[var(--ivory)] hover:border-[var(--sand-gold)]/60 cursor-pointer"
-          >
-            <div className="flex items-center gap-2 text-xs font-semibold tracking-wider uppercase text-foreground">
-              <Download className="h-3.5 w-3.5 text-[var(--sand-deep)]" />
-              <span>{downloading ? "Menyiapkan Gambar..." : "Download Hasil"}</span>
-            </div>
-            <span className="text-[10px] text-muted-foreground">
-              Simpan hasil rekomendasi sebagai gambar
-            </span>
-          </button>
-
-          {/* WhatsApp Direct Share */}
-          <button
-            type="button"
-            onClick={handleWhatsAppShare}
-            className="flex min-h-[50px] w-full flex-col items-center justify-center gap-0.5 rounded-xl border border-[var(--sand-gold)]/35 bg-card/80 px-4 py-2.5 text-center text-foreground shadow-xs transition-all hover:bg-[var(--ivory)] hover:border-[var(--sand-gold)]/60 cursor-pointer"
-          >
-            <div className="flex items-center gap-2 text-xs font-semibold tracking-wider uppercase text-foreground">
-              <MessageSquare className="h-3.5 w-3.5 text-[var(--sand-deep)]" />
-              <span>Kirim ke WhatsApp</span>
-            </div>
-            <span className="text-[10px] text-muted-foreground">
-              Simpan ke WhatsApp agar mudah dibuka
-            </span>
+        </motion.div>
+      ) : (
+        <div className="abna-results__empty">
+          <h2>Rekomendasi belum tersedia</h2>
+          <p>Silakan mulai konsultasi kembali.</p>
+          <button type="button" onClick={onRestart}>
+            Mulai Ulang
           </button>
         </div>
-
-        {/* TIER 3: REFINED GHOST SESSION NAVIGATION */}
-        <div className="pt-2">
-          <button
-            type="button"
-            onClick={onRestart}
-            className="group flex items-center justify-center gap-2 py-2 px-4 text-xs font-semibold tracking-[0.16em] text-muted-foreground transition-all hover:text-foreground cursor-pointer"
-          >
-            <RotateCcw
-              className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-rotate-90 text-[var(--sand-deep)]"
-              strokeWidth={2}
-            />
-            <span className="uppercase">MULAI KONSULTASI BARU</span>
-          </button>
-        </div>
-      </motion.div>
+      )}
     </section>
   );
 }
@@ -450,28 +291,27 @@ function roundRect(
   ctx.closePath();
 }
 
-function wrapText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  maxWidth: number,
-  lineHeight: number,
-) {
-  const words = text.split(" ");
-  let line = "";
-
-  for (let n = 0; n < words.length; n++) {
-    const testLine = line + words[n] + " ";
-    const metrics = ctx.measureText(testLine);
-    const testWidth = metrics.width;
-    if (testWidth > maxWidth && n > 0) {
-      ctx.fillText(line, x, y);
-      line = words[n] + " ";
-      y += lineHeight;
-    } else {
-      line = testLine;
+function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const lines: string[] = [];
+  for (const paragraph of text.split("\n")) {
+    let line = "";
+    for (const word of paragraph.split(/\s+/)) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (ctx.measureText(candidate).width <= maxWidth) {
+        line = candidate;
+        continue;
+      }
+      if (line) lines.push(line);
+      line = "";
+      for (const char of word) {
+        if (line && ctx.measureText(line + char).width > maxWidth) {
+          lines.push(line);
+          line = "";
+        }
+        line += char;
+      }
     }
+    lines.push(line);
   }
-  ctx.fillText(line, x, y);
+  return lines;
 }

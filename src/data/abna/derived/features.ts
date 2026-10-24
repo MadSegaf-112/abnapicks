@@ -72,6 +72,9 @@ export function buildCanonicalAbnaProduct(
       accords: enrichment.accords,
       fragranceFamily: enrichment.fragranceFamily,
       editorialStory: enrichment.editorialStory,
+      occasions: enrichment.occasions,
+      timeOfDay: enrichment.timeOfDay,
+      seasons: enrichment.seasons,
       source: enrichment.source,
     };
 

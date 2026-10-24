@@ -1,0 +1,40 @@
+@font-face {
+    font-family: "Abna Basis";
+    src: url("/fonts/basis-regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Abna Basis";
+    src: url("/fonts/basis-regular.woff2") format("woff2");
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Abna Basis";
+    src: url("/fonts/basis-regular.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Abna Editorial";
+    src: url("/fonts/editorial-ultralight.woff2") format("woff2");
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Abna Editorial";
+    src: url("/fonts/editorial-ultralight.woff2") format("woff2");
+    font-weight: 200;
+    font-style: normal;
+    font-display: swap;
+}
+

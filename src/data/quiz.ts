@@ -53,7 +53,7 @@ export type QuizStep =
 // Curated Unsplash imagery — cinematic, grounded, natural fragrance aesthetics with high semantic match
 const img = (id: string) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&q=80`;
 
-export const QUIZ: QuizStep[] = [
+const QUIZ_DATA: QuizStep[] = [
   // Pertanyaan 1: Karakter Aroma
   {
     id: "mood",
@@ -66,25 +66,25 @@ export const QUIZ: QuizStep[] = [
         id: "mysterious",
         label: "Misterius",
         caption: "Wangi yang terasa dalam, elegan, dan memikat.",
-        image: img("photo-1518709268805-4e9042af9f23"), // Dark, moody, elegant aesthetic
+        image: "/assets-new/mood-mysterious.jpeg",
       },
       {
         id: "radiant",
         label: "Ceria",
         caption: "Wangi yang terasa segar, hangat, dan penuh energi.",
-        image: img("photo-1492562080023-ab3db95bfbce"), // Genuine joyful smiling expressive radiance
+        image: "/assets-new/mood-radiant.jpeg",
       },
       {
         id: "serene",
         label: "Lembut",
         caption: "Wangi yang terasa tenang, halus, dan menenangkan.",
-        image: img("photo-1584100936595-c0654b55a2e2"), // Pure soft tactile cashmere / draped velvet texture
+        image: "/assets-new/mood-serene.jpeg",
       },
       {
         id: "empowered",
         label: "Percaya Diri",
         caption: "Wangi yang terasa tegas, berkelas, dan mudah diingat.",
-        image: "/percayadiri.jpg",
+        image: "/assets-new/mood-empowered.jpeg",
       },
     ],
   },
@@ -100,44 +100,44 @@ export const QUIZ: QuizStep[] = [
       {
         id: "floral",
         label: "Floral",
-        caption: "Wangi bunga yang lembut, cantik, dan elegan.",
-        image: img("photo-1490750967868-88aa4486c946"), // High quality lush floral bloom
+        caption: "Wangi yang terasa dalam, elegan, dan memikat.",
+        image: "/assets-new/Floral@4x.png",
       },
       {
         id: "woody",
         label: "Woody",
-        caption: "Wangi kayu yang hangat, tenang, dan berkelas.",
-        image: img("photo-1448375240586-882707db888b"), // Deep cedar/forest wood grain
+        caption: "Wangi yang terasa dalam, elegan, dan memikat.",
+        image: "/assets-new/Woody@4x.png",
       },
       {
         id: "citrus",
         label: "Citrus",
-        caption: "Wangi segar seperti lemon, jeruk, atau buah yang cerah.",
-        image: img("photo-1547514701-42782101795e"), // Fresh bright lemons & citrus slices
+        caption: "Wangi yang terasa dalam, elegan, dan memikat.",
+        image: "/assets-new/Citrus@4x.png",
       },
       {
         id: "oriental",
-        label: "Amber & Spicy",
-        caption: "Wangi hangat dengan sentuhan rempah yang terasa mewah.",
-        image: img("photo-1509358271058-acd22cc93898"), // Rich warm spices & amber textures
+        label: "Spicy",
+        caption: "Wangi yang terasa dalam, elegan, dan memikat.",
+        image: "/assets-new/Spicy@4x.png",
       },
       {
         id: "aquatic",
         label: "Aquatic",
         caption: "Wangi bersih dan sejuk seperti udara laut atau habis mandi.",
-        image: img("photo-1505118380757-91f5f5632de0"), // Crisp clear ocean water breeze
+        image: img("photo-1505118380757-91f5f5632de0"),
       },
       {
         id: "gourmand",
         label: "Gourmand",
         caption: "Wangi manis seperti vanilla, caramel, atau dessert.",
-        image: img("photo-1488477181946-6428a0291777"), // Vanilla dessert & caramel tones
+        image: img("photo-1488477181946-6428a0291777"),
       },
       {
         id: "musky_powdery",
         label: "Musky / Powdery",
         caption: "Wangi lembut, bersih, dan halus seperti bedak atau kulit yang fresh.",
-        image: img("photo-1522337360788-8b13dee7a37e"), // Fine delicate cosmetic powder & soft velvety puff
+        image: img("photo-1522337360788-8b13dee7a37e"),
       },
     ],
   },
@@ -178,7 +178,7 @@ export const QUIZ: QuizStep[] = [
         id: "warm_night",
         label: "Malam Hangat",
         caption: "Terasa elegan, intim, dan sedikit sensual.",
-        image: "/malamhangat.jpg",
+        image: "/img/malamhangat.jpg",
       },
       {
         id: "luxury_room",
@@ -219,7 +219,7 @@ export const QUIZ: QuizStep[] = [
         id: "night",
         label: "Acara Malam / Pesta",
         caption: "Untuk momen yang ingin terasa lebih standout dan berkesan.",
-        image: "/pesta.jpg",
+        image: "/img/pesta.jpg",
       },
       {
         id: "outdoor",
@@ -327,3 +327,25 @@ export const QUIZ: QuizStep[] = [
     ],
   },
 ];
+
+const STEP_ORDER: QuizStep["id"][] = [
+  "mood",
+  "scent_family",
+  "occasion",
+  "intensity",
+  "atmosphere",
+  "age_range",
+  "gender",
+  "occupation",
+  "price_range",
+];
+
+export const QUIZ: QuizStep[] = STEP_ORDER.map((id) => {
+  const step = QUIZ_DATA.find((item) => item.id === id);
+
+  if (!step) {
+    throw new Error(`Pertanyaan tidak ditemukan: ${id}`);
+  }
+
+  return step;
+});

@@ -7,6 +7,8 @@
 
 import type { Fragrance, FragranceFeatureVector } from "./fragrances/types";
 
+export type PerfumeTypePreference = "masculine" | "feminine" | "unisex" | string;
+
 /**
  * Raw quiz answers received from user input.
  */
@@ -16,7 +18,8 @@ export interface QuizAnswers {
   scent_family?: string[];
   intensity?: "lembut" | "seimbang" | "semerbak" | number | string;
   occasion?: string;
-  gender?: string;
+  gender?: string; // Customer demographic gender (analytics only)
+  perfume_type?: PerfumeTypePreference; // Perfume candidate eligibility filter (Masculine / Feminine / Unisex)
   age_range?: string;
   occupation?: string;
   price_range?: string;
@@ -36,6 +39,7 @@ export interface CustomerPreferenceProfile {
     intensity_raw: number;
     occasion?: string;
     gender?: string;
+    perfume_type?: string;
     age_range?: string;
     occupation?: string;
     price_range?: string;

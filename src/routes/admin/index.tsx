@@ -190,10 +190,7 @@ function AdminDashboardPage() {
 
         // Check for admin role/claim strictly via server-assigned app_metadata (reject mutable user_metadata)
         const user = session.user;
-        const isAdmin =
-          user.app_metadata?.is_admin === true ||
-          user.app_metadata?.role === "admin" ||
-          !user.app_metadata?.role; // allow default admin setup if not yet using multi-tier roles
+        const isAdmin = user.app_metadata?.is_admin === true || user.app_metadata?.role === "admin";
 
         if (!isAdmin) {
           setIsAuthenticated(false);
@@ -222,10 +219,7 @@ function AdminDashboardPage() {
       if (!isMounted) return;
       if (session) {
         const user = session.user;
-        const isAdmin =
-          user.app_metadata?.is_admin === true ||
-          user.app_metadata?.role === "admin" ||
-          !user.app_metadata?.role;
+        const isAdmin = user.app_metadata?.is_admin === true || user.app_metadata?.role === "admin";
 
         if (isAdmin) {
           setIsAuthenticated(true);

@@ -1,86 +1,108 @@
-import { motion } from "framer-motion";
+import { useMotionPreference } from "@/hooks/use-motion-preference";
+import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 
 const STAGES = [
-  "Membaca selera wangimu...",
-  "Mencocokkan dengan koleksi ABNA...",
-  "Memilih rekomendasi terbaik...",
-  "Hasilmu hampir siap...",
+  "Menyiapkan rekomendasi sesuai jawabanmu...",
+  "Masih merangkai pilihan aroma. Terima kasih sudah menunggu...",
 ];
 
 export function LoadingScreen() {
   const [stage, setStage] = useState(0);
+  const shouldReduceMotion = useMotionPreference();
 
   useEffect(() => {
-    // 2-3 second crisp retail curation pacing
-    const t = setInterval(() => setStage((s) => (s + 1) % STAGES.length), 750);
-    return () => clearInterval(t);
+    const timer = window.setTimeout(() => setStage(1), 4000);
+    return () => window.clearTimeout(timer);
   }, []);
 
   return (
-    <section className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
-      {/* ABNA Scent Emblem */}
-      <div className="relative h-[220px] w-[220px] sm:h-[280px] sm:w-[280px]">
-        {/* Soft Glowing Gradient Orb */}
+    <section
+      className="abna-loading"
+      role="status"
+      aria-live="polite"
+      tabIndex={-1}
+      aria-label="Sedang menyiapkan rekomendasi"
+    >
+      <div className="relative flex h-44 w-44 items-center justify-center" aria-hidden="true">
+        {/* Concentric subtle formulation rings */}
         <motion.div
-          className="aura-orb absolute inset-0 rounded-full"
-          animate={{ scale: [1, 1.08, 1], opacity: [0.85, 1, 0.85] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute inset-4 rounded-full border border-[#3a5b7d]/20"
+          animate={shouldReduceMotion ? undefined : { rotate: 360 }}
+          transition={
+            shouldReduceMotion ? undefined : { duration: 20, repeat: Infinity, ease: "linear" }
+          }
+        />
+        <motion.div
+          className="absolute inset-8 rounded-full border border-[#c6af89]/40"
+          animate={shouldReduceMotion ? undefined : { rotate: -360 }}
+          transition={
+            shouldReduceMotion ? undefined : { duration: 15, repeat: Infinity, ease: "linear" }
+          }
         />
 
-        {/* Concentric Gold Rings */}
+        {/* Ambient formulation glow */}
         <motion.div
-          className="absolute inset-6 rounded-full border border-foreground/15"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
-        />
-        <motion.div
-          className="absolute inset-12 rounded-full border border-[var(--sand-gold)]/30"
-          animate={{ rotate: -360 }}
-          transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+          className="absolute h-36 w-36 rounded-full bg-[#c6af89]/15 blur-xl pointer-events-none"
+          animate={
+            shouldReduceMotion ? undefined : { scale: [0.9, 1.15, 0.9], opacity: [0.3, 0.6, 0.3] }
+          }
+          transition={
+            shouldReduceMotion ? undefined : { duration: 4, repeat: Infinity, ease: "easeInOut" }
+          }
         />
 
-        {/* Center ABNA Monogram */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-serif text-2xl italic text-[var(--sand-gold)]">✦</span>
-          <span className="mt-1 font-display text-sm tracking-[0.25em] text-foreground uppercase">
-            ABNA
-          </span>
-        </div>
+        {/* Center Bottle Silhouette Asset */}
+        <motion.div
+          className="relative h-28 w-20 flex items-center justify-center"
+          animate={shouldReduceMotion ? undefined : { scale: [1, 1.025, 1] }}
+          transition={
+            shouldReduceMotion ? undefined : { duration: 4, repeat: Infinity, ease: "easeInOut" }
+          }
+        >
+          <img
+            src="/assets-new/Botol Siluet@4x.png"
+            alt="ABNA Bottle Silhouette"
+            className="h-full w-full object-contain"
+          />
+        </motion.div>
       </div>
-
       {/* Headline */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: shouldReduceMotion ? 0.15 : 0.45 }}
         className="mt-8 max-w-lg"
       >
-        <p className="text-[11px] font-semibold tracking-[0.25em] text-[var(--sand-deep)] uppercase">
+        <p className="font-heading text-xs font-bold tracking-widest text-[#c6af89] uppercase">
           SEBENTAR YA
         </p>
-        <h2 className="font-display mt-2 text-2xl tracking-tight text-foreground sm:text-3xl">
+        <h2 className="font-heading mt-2 text-2xl sm:text-3xl font-black tracking-tight text-[#3a5b7d]">
           Kami Lagi Pilihkan Parfum Buat Kamu
         </h2>
-        <p className="mt-2 text-xs sm:text-sm text-muted-foreground">
+        <p className="mt-2 text-xs sm:text-sm font-body text-[#555555]">
           Jawabanmu sedang dicocokkan dengan aroma yang paling pas dari koleksi ABNA.
         </p>
       </motion.div>
 
-      {/* Dynamic Subtext */}
-      <motion.div
-        key={stage}
-        initial={{ opacity: 0, y: 3 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.25 }}
-        className="mt-5 inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/80 px-4 py-1.5 shadow-sm backdrop-blur-sm"
-      >
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--sand-gold)] animate-pulse" />
-        <span className="text-xs font-medium tracking-wide text-foreground/80">
-          {STAGES[stage]}
-        </span>
-      </motion.div>
+      {/* Activity labels describe the process; they are not measured progress. */}
+      <div className="mt-6 min-h-[36px] flex items-center justify-center">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={stage}
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -4 }}
+            transition={{ duration: shouldReduceMotion ? 0.08 : 0.22 }}
+            className="inline-flex items-center gap-2 rounded-full bg-[#f2eee9] px-5 py-2 shadow-xs"
+          >
+            <span className="h-2 w-2 rounded-full bg-[#3a5b7d] animate-pulse" />
+            <span className="font-heading text-xs font-semibold text-[#3a5b7d]">
+              {STAGES[stage]}
+            </span>
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </section>
   );
 }

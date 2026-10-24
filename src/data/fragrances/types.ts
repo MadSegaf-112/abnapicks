@@ -69,6 +69,9 @@ export interface Fragrance {
   performance: FragrancePerformance;
   catalog: FragranceCatalogInfo;
   features: FragranceFeatureVector;
+  occasions?: string[];
+  timeOfDay?: "day" | "night" | "anytime";
+  seasons?: string[];
 }
 
 /**
